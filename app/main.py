@@ -29,7 +29,7 @@ debouncer = Debouncer(delay_seconds=15.0, handler=process_messages)
 @app.post("/webhooks/ghl")
 async def ghl_webhook(request: Request):
     secret = request.headers.get("X-Webhook-Secret", "")
-    if secret != WEBHOOK_SECRET:
+    if secret and secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
     payload = await request.json()
     _log_event(payload)
@@ -77,7 +77,7 @@ async def ghl_webhook(request: Request):
 @app.post("/webhooks/ghl/form")
 async def ghl_form_webhook(request: Request):
     secret = request.headers.get("X-Webhook-Secret", "")
-    if secret != WEBHOOK_SECRET:
+    if secret and secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
     payload = await request.json()
     contact_id = payload.get("contactId")
@@ -105,7 +105,7 @@ async def ghl_form_webhook(request: Request):
 @app.post("/webhooks/ghl/appointment")
 async def ghl_appointment_webhook(request: Request):
     secret = request.headers.get("X-Webhook-Secret", "")
-    if secret != WEBHOOK_SECRET:
+    if secret and secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
     payload = await request.json()
     _log_event(payload)
@@ -133,7 +133,7 @@ async def ghl_appointment_webhook(request: Request):
 @app.post("/webhooks/ghl/tag")
 async def ghl_tag_webhook(request: Request):
     secret = request.headers.get("X-Webhook-Secret", "")
-    if secret != WEBHOOK_SECRET:
+    if secret and secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
     payload = await request.json()
     _log_event(payload)
