@@ -1,20 +1,30 @@
-from anthropic import AsyncAnthropic
-from app.config import ANTHROPIC_API_KEY
+from google import genai
+from app.config import GOOGLE_API_KEY
 
-_client: AsyncAnthropic | None = None
+_client: genai.Client | None = None
 
-def get_anthropic() -> AsyncAnthropic:
+def get_client() -> genai.Client:
     global _client
     if _client is None:
-        _client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+        _client = genai.Client(api_key=GOOGLE_API_KEY)
     return _client
 
 async def chat(system_prompt: str, messages: list[dict], max_tokens: int = 1024) -> str:
-    client = get_anthropic()
-    response = await client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=max_tokens,
-        system=system_prompt,
-        messages=messages,
+    client = get_client()
+    # Convert Claude-format messages to Gemini contents
+    contents = []
+    for msg in messages:
+        role = "user" if msg["role"] == "user" else "model"
+        contents.append(genai.types.Content(
+            role=role,
+            parts=[genai.types.Part(text=msg["content"])],
+        ))
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=genai.types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            max_output_tokens=max_tokens,
+        ),
     )
-    return response.content[0].text
+    return response.text

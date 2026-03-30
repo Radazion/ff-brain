@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # API Keys
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+GOOGLE_API_KEY = os.environ["GOOGLE_API_KEY"]
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_KEY"]
