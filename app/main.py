@@ -26,14 +26,46 @@ async def process_messages(lead_id: str, messages: list[str]):
 
 debouncer = Debouncer(delay_seconds=15.0, handler=process_messages)
 
+def _normalize_payload(payload: dict) -> dict:
+    """Normalize GHL webhook payload to a common format.
+    Supports both native conversation webhooks and GHL Workflow webhooks."""
+    # GHL Workflow format: contact_id, message.body, full_name
+    if "contact_id" in payload and "message" in payload:
+        message = payload.get("message", {})
+        form_data = {}
+        form_field_keys = [k for k in payload if "?" in k or k in (
+            "tipo_de_diabetes", "medicacion_actual", "gastos_medicos",
+            "metodos_probados", "frustracion_actual", "nivel_de_motivacion",
+            "compromiso_economico", "situacion_laboral", "Hb1Ac_actual",
+            "toma_de_decision",
+        )]
+        for k in form_field_keys:
+            if payload.get(k):
+                form_data[k] = payload[k]
+        return {
+            "contactId": payload["contact_id"],
+            "body": message.get("body", "") if isinstance(message, dict) else "",
+            "contactName": payload.get("full_name", ""),
+            "firstName": payload.get("first_name", ""),
+            "phone": payload.get("phone", ""),
+            "email": payload.get("email", ""),
+            "direction": "inbound",
+            "source": "workflow",
+            "form_data": form_data if form_data else None,
+            "tags": payload.get("tags", ""),
+        }
+    # Native GHL conversation webhook format: contactId, body, direction
+    return payload
+
 @app.post("/webhooks/ghl")
 async def ghl_webhook(request: Request):
     secret = request.headers.get("X-Webhook-Secret", "")
     if secret and secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="Invalid webhook secret")
-    payload = await request.json()
-    _log_event(payload)
-    if GHLClient.is_human_message(payload):
+    raw_payload = await request.json()
+    _log_event(raw_payload)
+    payload = _normalize_payload(raw_payload)
+    if GHLClient.is_human_message(raw_payload):
         await handle_human_takeover(payload)
         return {"status": "human_takeover"}
     if payload.get("direction") != "inbound":
@@ -43,12 +75,20 @@ async def ghl_webhook(request: Request):
         return {"status": "no_contact"}
     lead = LeadModel.find_by_ghl_id(contact_id)
     if not lead:
-        lead = LeadModel.create({
+        create_data = {
             "ghl_contact_id": contact_id,
             "name": payload.get("contactName", ""),
             "phone": payload.get("phone", ""),
             "source": "whatsapp_directo",
-        })
+        }
+        if payload.get("form_data"):
+            create_data["form_data"] = payload["form_data"]
+            create_data["source"] = "form"
+            create_data["funnel_stage"] = "lleno_form"
+        lead = LeadModel.create(create_data)
+    elif payload.get("form_data") and not lead.get("form_data"):
+        LeadModel.update(lead["id"], {"form_data": payload["form_data"]})
+        lead = LeadModel.get(lead["id"])
     LeadModel.refresh_window(lead["id"])
     message_text = payload.get("body", "")
     if payload.get("contentType") == "audio":
