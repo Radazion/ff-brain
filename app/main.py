@@ -174,4 +174,4 @@ def _log_event(payload: dict):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": "2026-03-30"}
