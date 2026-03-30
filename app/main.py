@@ -12,17 +12,21 @@ app = FastAPI(title="FF Brain")
 ghl = GHLClient()
 
 async def process_messages(lead_id: str, messages: list[str]):
+    logger.info(f"Processing {len(messages)} messages for lead {lead_id}")
     lead = LeadModel.get(lead_id)
     if not lead:
+        logger.warning(f"Lead {lead_id} not found")
         return
     combined = "\n".join(messages)
     agent = route_event("inbound_message", lead)
+    logger.info(f"Routing to agent: {agent} for lead {lead['name']}")
     if agent == "setter":
         from app.agents.setter import SetterAgent
         await SetterAgent().process(lead, combined)
     elif agent == "post_agenda":
         from app.agents.post_agenda import PostAgendaAgent
         await PostAgendaAgent().process(lead, combined)
+    logger.info(f"Done processing for lead {lead['name']}")
 
 debouncer = Debouncer(delay_seconds=15.0, handler=process_messages)
 

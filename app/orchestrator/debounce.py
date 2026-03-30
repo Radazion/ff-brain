@@ -1,5 +1,8 @@
 import asyncio
+import logging
 from typing import Callable, Awaitable
+
+logger = logging.getLogger(__name__)
 
 class Debouncer:
     def __init__(self, delay_seconds: float = 15.0,
@@ -22,4 +25,16 @@ class Debouncer:
         messages = self._buffers.pop(lead_id, [])
         self._timers.pop(lead_id, None)
         if messages and self.handler:
-            await self.handler(lead_id, messages)
+            try:
+                await self.handler(lead_id, messages)
+            except Exception as e:
+                logger.error(f"Debouncer handler failed for lead {lead_id}: {e}", exc_info=True)
+                from app.services.supabase_client import get_supabase
+                try:
+                    get_supabase().table("event_log").insert({
+                        "lead_id": None,
+                        "event_type": "handler_error",
+                        "payload": {"lead_id": lead_id, "error": str(e), "messages": messages},
+                    }).execute()
+                except Exception:
+                    pass
